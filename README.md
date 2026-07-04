@@ -1,10 +1,10 @@
 # Velociter
 
-<p align="center">
+[<p align="center">
   <video src="Trailers/trailer.mp4" controls width="800">
     Votre navigateur ne prend pas en charge la lecture de vidéos.
   </video>
-</p>
+</p>](https://github.com/Novar42/Velociter/blob/main/Trailers/trailer.mp4)
 
 > **Velociter** est un projet développé avec **Unity** mettant en scène un environnement dans lequel le joueur peut explorer librement et se déplacer.
 
