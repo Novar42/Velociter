@@ -1,40 +1,63 @@
 # Velociter
 
-https://github.com/Novar42/Velociter/blob/main/Trailers/trailer.mp4
+<p align="center">
+  <video src="Trailers/trailer.mp4" controls width="800">
+    Votre navigateur ne prend pas en charge la lecture de vidéos.
+  </video>
+</p>
 
----
+> **Velociter** est un projet développé avec **Unity** mettant en scène un environnement dans lequel le joueur peut explorer librement et se déplacer.
 
-## 🎮 À propos
+## Présentation
 
-**Velociter** est un projet développé avec **Unity** mettant en scène un environnement 3D dans lequel le joueur peut librement se déplacer afin d'explorer le monde du jeu.
+Velociter est un projet Unity centré sur l'exploration et les déplacements du joueur dans un environnement 3D. Il sert de base à la mise en place de mécaniques de gameplay, d'interactions et d'extensions futures.
 
-Ce projet sert de base pour expérimenter le déplacement du joueur, l'exploration et le développement de mécaniques de gameplay sous Unity.
+## Fonctionnalités
 
-## ✨ Fonctionnalités
+- 🎮 Déplacement du joueur
+- 📷 Contrôle de la caméra
+- 🌍 Exploration libre de l'environnement
+- ⚙️ Développé avec Unity
 
-* Déplacement libre du joueur.
-* Environnement 3D interactif.
-* Projet développé avec Unity.
-* Structure prête à accueillir de nouvelles fonctionnalités.
+## Contrôles
 
-## 🚀 Lancement du projet
+| Action | Touche |
+|--------|---------|
+| Avancer | `Z` / `W` |
+| Reculer | `S` |
+| Aller à gauche | `Q` / `A` |
+| Aller à droite | `D` |
+| Regarder | Souris |
+| Saut *(si implémenté)* | `Espace` |
+
+## Installation
 
 1. Cloner le dépôt :
 
-   ```bash
-   git clone https://github.com/Novar42/Velociter.git
-   ```
+```bash
+git clone https://github.com/<utilisateur>/Velociter.git
+```
 
-2. Ouvrir le projet avec une version compatible de **Unity**.
+2. Ouvrir le projet avec une version compatible de Unity.
 
-3. Lancer la scène principale depuis l'éditeur Unity.
+3. Lancer la scène principale.
 
-## 🛠️ Technologies
+## Structure du projet
 
-* Unity
-* C#
-* Git
-* GitHub
+```
+Assets/
+Packages/
+ProjectSettings/
+Trailers/
+    trailer.mp4
+```
 
-## 📄 Licence
-MIT
+## Technologies
+
+- Unity
+- C#
+- Git & GitHub
+
+## Auteurs
+
+Projet réalisé dans le cadre du développement de **Velociter**.
