@@ -6,7 +6,7 @@ https://github.com/user-attachments/assets/08455d28-4bfd-4caf-b51f-043429392d85
 
 ## Présentation
 
-Velociter est un prototype de jeu vidéo basé sur les déplacements et l'inercie. 
+Velociter est un prototype de jeu vidéo basé sur les déplacements et l'inercie.
 
 ## Technologies
 
@@ -14,6 +14,4 @@ Velociter est un prototype de jeu vidéo basé sur les déplacements et l'inerci
 - C#
 - Git & GitHub
 
-## Auteurs
-
-@Novar
+plus d'information sur mon discord : https://discord.gg/meG8hv5YVD
