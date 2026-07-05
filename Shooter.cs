@@ -34,7 +34,9 @@ public class Shooter : MonoBehaviour
                     case CurrentState.Shooting:
                         if (AimCheck((Vector2)_aimPoint).transform == Player._player.gameObject.transform)
                         {
-                            Player._player.Die();
+                            Player._player.HealthChange(-1);
+                            StopAllCoroutines();
+                            StartCoroutine(ICooldown(_cooldownDuration));
                         }
                         break;
                     case CurrentState.Cooldown:
