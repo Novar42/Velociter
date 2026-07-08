@@ -6,7 +6,9 @@ https://github.com/user-attachments/assets/b8667140-d8b5-4845-a0bc-72a334b63c17
 
 Velociter est un prototype de jeu vidéo en développement basé sur les déplacements et l'inertie. Beaucoup plus de contenus seront ajoutés plus tard.
 Restez à l'affut pour les mises à jour qui vont suivre !
-## Stack
+Ce projet est réalisé à la main, sans l'aide d'IA.
+
+## Supports
 
 - Unity
 - C#
