@@ -5,17 +5,24 @@ using UnityEngine.UI;
 using TMPro;
 using System;
 using System.Collections.Generic;
+
 public class Player : MonoBehaviour
 {
     public static Player _player;
     public GameObject _cam;
     public Rigidbody2D _body;
+    public List<GameObject> enemies = new List<GameObject>();
 
     [Header("health")]
     public int _health;
     public int _maxHealth;
     public GameObject _prefabHealthUI;
     public GameObject _healthCountUI;
+
+    [Header("Weapon")]
+    public Weapon _weapon;
+    public bool _isShooting = false;
+    public float _range;
 
     [Header("Dash")]
     public int _dashCount;
@@ -63,16 +70,22 @@ public class Player : MonoBehaviour
         _direction.Enable();
         _dash.performed += InputHub;
         _dash.Enable();
+        _shoot.performed += InputHub;
+        _shoot.canceled += InputHub;
+        _shoot.Enable();
     }
 
     void OnDisable()
     {
         _mousePosition.performed -= InputHub;
-        _mousePosition.Enable();
+        _mousePosition.Disable();
         _direction.performed -= InputHub;
-        _direction.Enable();
+        _direction.Disable();
         _dash.performed -= InputHub;
-        _dash.Enable();
+        _dash.Disable();
+        _shoot.performed -= InputHub;
+        _shoot.canceled -= InputHub;
+        _shoot.Disable();
     }
 
     void FixedUpdate()
@@ -84,6 +97,10 @@ public class Player : MonoBehaviour
         if (!_drift.IsPressed())
         {
             _movement = Vector2.up * _acceleration;
+        }
+        if (_isShooting)
+        {
+            UpdateAim();
         }
         _body.AddRelativeForce(_movement);
     }
@@ -110,6 +127,18 @@ public class Player : MonoBehaviour
         {
             Dash();
         }
+        if (context.action == _shoot)
+        {
+            if (context.performed)
+            {
+                _isShooting = true;
+            }
+            if (context.canceled)
+            {
+                _isShooting = false;
+                Shoot();
+            }
+        }
     }
 
     public void UpdateSpeed()
@@ -122,12 +151,74 @@ public class Player : MonoBehaviour
     {
         if (_currentDevice == CurrentDevice.Gamepad)
         {
-            transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(_direction.ReadValue<Vector2>().y, _direction.ReadValue<Vector2>().x) * Mathf.Rad2Deg - 90f);
+            transform.rotation = Quaternion.Euler(0f, 0f, DirectionToAngle(_direction.ReadValue<Vector2>()));
         }
         if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
         {
             _worldMousePosition = _cam.GetComponent<Camera>().ScreenToWorldPoint(new Vector3(_mousePosition.ReadValue<Vector2>().x, _mousePosition.ReadValue<Vector2>().y, 0)) - _cam.transform.position;
-            transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(_worldMousePosition.y, _worldMousePosition.x) * Mathf.Rad2Deg - 90f);
+            transform.rotation = Quaternion.Euler(0f, 0f, DirectionToAngle(_worldMousePosition));
+        }
+    }
+
+    public void UpdateAim()
+    {
+        if (_weapon._laser.currentState == Weapon.CurrentState.Working)
+        {
+            if (_currentDevice == CurrentDevice.Gamepad)
+            {
+                switch (_weapon._currentWeapon)
+                {
+                    case Weapon.CurrentWeapon.Laser:
+                        _weapon._laser.AimCheck(_direction.ReadValue<Vector2>() + (Vector2)_weapon.transform.position, Color.red);
+                        break;
+                    case Weapon.CurrentWeapon.Rocket:
+                        _weapon._rocket.AimCheck(DirectionToAngle(_direction.ReadValue<Vector2>()), Color.red);
+                        break;
+                }
+            }
+            if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
+            {
+                switch (_weapon._currentWeapon)
+                {
+                    case Weapon.CurrentWeapon.Laser:
+                        _weapon._laser.AimCheck(_worldMousePosition + _weapon.transform.position, Color.red);
+                        break;
+                    case Weapon.CurrentWeapon.Rocket:
+                        _weapon._rocket.AimCheck(_worldMousePosition + _weapon.transform.position, Color.red);
+                        break;
+                }
+            }
+        }
+    }
+
+    public void Shoot()
+    {
+        if (_weapon._laser.currentState == Weapon.CurrentState.Working)
+        {
+            if (_currentDevice == CurrentDevice.Gamepad)
+            {
+                switch (_weapon._currentWeapon)
+                {
+                    case Weapon.CurrentWeapon.Laser:
+                        _weapon._laser.AimCheck(_direction.ReadValue<Vector2>() + (Vector2)_weapon.transform.position, Color.white);
+                        break;
+                    case Weapon.CurrentWeapon.Rocket:
+                        _weapon._rocket.AimCheck(DirectionToAngle(_direction.ReadValue<Vector2>()), Color.red);
+                        break;
+                }
+            }
+            if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
+            {
+                switch (_weapon._currentWeapon)
+                {
+                    case Weapon.CurrentWeapon.Laser:
+                        _weapon._laser.Shoot(_worldMousePosition + _weapon.transform.position, Color.white);
+                        break;
+                    case Weapon.CurrentWeapon.Rocket:
+                        _weapon._rocket.Shoot(_worldMousePosition + _weapon.transform.position, Color.red);
+                        break;
+                }
+            }
         }
     }
 
@@ -218,5 +309,10 @@ public class Player : MonoBehaviour
     public void Die()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public float DirectionToAngle(Vector2 direction)
+    {
+        return Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
     }
 }

@@ -3,13 +3,23 @@ using System.Collections;
 
 public class Shooter : MonoBehaviour
 {
-    public float _health, _damages, _range, _enableRange, _aimDuration, _shootDuration, _cooldownDuration;
-    public LayerMask _shootInteract;
-    public enum CurrentState {Aiming, Shooting, Cooldown, Waiting, Disabled}
+    public float _range, _enableRange, _aimDuration, _shootDuration;
     public Vector3 _aimPoint;
+    public enum CurrentState {Aiming, Shooting, Waiting, Disabled}
     public CurrentState _currentState;
+    public Weapon _weapon;
     public Rigidbody2D _body;
     public LineRenderer line;
+
+    public void Awake()
+    {
+        _currentState = CurrentState.Disabled;
+    }
+
+    void Start()
+    {
+        Player._player.enemies.Add(gameObject);
+    }
 
     void FixedUpdate()
     {
@@ -25,25 +35,38 @@ public class Shooter : MonoBehaviour
             if (Vector2.Distance(Player._player.gameObject.transform.position, transform.position) <= _range)
             {
                 UpdateDirection();
-                line.SetPosition(0, transform.position);
-                switch (_currentState)
+                if (_weapon._currentWeaponState == Weapon.CurrentState.Working)
                 {
-                    case CurrentState.Aiming:
-                        AimCheck((Vector2)_aimPoint);
-                        break;
-                    case CurrentState.Shooting:
-                        if (AimCheck((Vector2)_aimPoint).transform == Player._player.gameObject.transform)
-                        {
-                            Player._player.HealthChange(-1);
-                            StopAllCoroutines();
-                            StartCoroutine(ICooldown(_cooldownDuration));
-                        }
-                        break;
-                    case CurrentState.Cooldown:
-                        break;
-                    case CurrentState.Waiting:
-                        StartCoroutine(IAim(_aimDuration));
-                        break;
+                    switch (_weapon._currentWeapon)
+                    {
+                        case Weapon.CurrentWeapon.Laser:
+                            switch (_currentState)
+                            {
+                                case CurrentState.Aiming:
+                                    _weapon._laser.AimCheck((Vector2)_aimPoint, Color.red);
+                                    break;
+                                case CurrentState.Shooting:
+                                    _weapon._laser.AimCheck((Vector2)_aimPoint, Color.yellow);
+                                    break;
+                                case CurrentState.Waiting:
+                                    StartCoroutine(IAim(_aimDuration));
+                                    break;
+                            }
+                            break;
+                        case Weapon.CurrentWeapon.Rocket:
+                            switch (_currentState)
+                            {
+                                case CurrentState.Waiting:
+                                    StartCoroutine(IShoot(_shootDuration));
+                                    break;
+                            }
+                            break;
+                    }
+                }
+                else
+                {
+                    StopAllCoroutines();
+                    _currentState = CurrentState.Waiting;
                 }
             }
             else if (_currentState != CurrentState.Waiting)
@@ -57,37 +80,20 @@ public class Shooter : MonoBehaviour
 
     public void UpdateDirection()
     {
-        if (_currentState == CurrentState.Aiming)
+        if (_weapon._laser.equiped == true && _currentState == CurrentState.Aiming)
         {
             _aimPoint = (Vector2)Player._player.gameObject.transform.position + Player._player._body.linearVelocity * _shootDuration;
-            transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2((_aimPoint - transform.position).y, (_aimPoint - transform.position).x) * Mathf.Rad2Deg - 90f);
+            transform.rotation = Quaternion.Euler(0f, 0f, Player._player.DirectionToAngle(_aimPoint - transform.position));
         }
-        else if (_currentState == CurrentState.Cooldown)
+        else if (_currentState != CurrentState.Shooting)
         {
-            transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(Player._player.gameObject.transform.position.y, Player._player.gameObject.transform.position.x) * Mathf.Rad2Deg - 90f);
+            transform.rotation = Quaternion.Euler(0f, 0f, Player._player.DirectionToAngle(Player._player.gameObject.transform.position));
         }
-    }
-
-    public RaycastHit2D AimCheck(Vector2 target)
-    {
-        RaycastHit2D hit = Physics2D.Raycast((Vector2)transform.position, target - (Vector2)transform.position, _range, _shootInteract);
-        if (hit)
-        {
-            line.SetPosition(1, hit.point);
-        }
-        else
-        {
-            line.SetPosition(1, ((Vector3)target - transform.position).normalized * _range + transform.position);
-        } 
-        return hit;
     }
 
     public IEnumerator IAim(float duration)
     {
         _currentState = CurrentState.Aiming;
-        line.enabled = true;
-        line.material.SetColor("_Color", Color.red);
-        line.material.SetColor("_EmissionColor", Color.red);
         yield return new WaitForSeconds(duration);
         StartCoroutine(IShoot(_shootDuration));
     }
@@ -95,17 +101,15 @@ public class Shooter : MonoBehaviour
     public IEnumerator IShoot(float duration)
     {
         _currentState = CurrentState.Shooting;
-        line.material.SetColor("_Color", Color.yellow);
-        line.material.SetColor("_EmissionColor", Color.yellow);
         yield return new WaitForSeconds(duration);
-        StartCoroutine(ICooldown(_cooldownDuration));
-    }
-
-    public IEnumerator ICooldown(float duration)
-    {
-        _currentState = CurrentState.Cooldown;
-        line.enabled = false;
-        yield return new WaitForSeconds(duration);
-        StartCoroutine(IAim(_aimDuration));
+        switch (_weapon._currentWeapon)
+        {
+            case Weapon.CurrentWeapon.Laser:
+                _weapon._laser.Shoot((Vector2)_aimPoint, Color.white);
+                break;
+            case Weapon.CurrentWeapon.Rocket:
+                _weapon._rocket.Shoot(Player._player.gameObject);
+                break;
+        }
     }
 }
