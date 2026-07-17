@@ -23,6 +23,8 @@ public class Player : MonoBehaviour
     public Weapon _weapon;
     public bool _isShooting = false;
     public float _range;
+    public GameObject _laserWeaponUI;
+    public GameObject _missileWeaponUI;
 
     [Header("Dash")]
     public int _dashCount;
@@ -39,10 +41,10 @@ public class Player : MonoBehaviour
     public Vector2 _movement;
 
     [Header("Inputs")]
-    public Vector3 _worldMousePosition;
+    public Vector2 _worldMousePosition;
     public enum CurrentDevice {Gamepad, Keyboard, Mobile}
     public CurrentDevice _currentDevice;
-    private InputAction _mousePosition, _direction, _dash, _drift, _shoot;
+    private InputAction _mousePosition, _direction, _dash, _drift, _shoot, _changeWeapon;
 
     void Awake()
     {
@@ -52,6 +54,7 @@ public class Player : MonoBehaviour
         _dash = InputSystem.actions.FindAction("Dash");
         _drift = InputSystem.actions.FindAction("Drift");
         _shoot = InputSystem.actions.FindAction("Shoot");
+        _changeWeapon = InputSystem.actions.FindAction("Change Weapon");
         for (int i = 0; i < _maxHealth; i++)
         {
             Instantiate(_prefabHealthUI, _healthCountUI.transform);
@@ -60,6 +63,7 @@ public class Player : MonoBehaviour
         {
             Instantiate(_prefabDashUI, _dashCountUI.transform);
         }
+        WeaponChange(1, false);
     }
 
     void OnEnable()
@@ -73,6 +77,8 @@ public class Player : MonoBehaviour
         _shoot.performed += InputHub;
         _shoot.canceled += InputHub;
         _shoot.Enable();
+        _changeWeapon.performed += InputHub;
+        _changeWeapon.Enable();
     }
 
     void OnDisable()
@@ -86,13 +92,15 @@ public class Player : MonoBehaviour
         _shoot.performed -= InputHub;
         _shoot.canceled -= InputHub;
         _shoot.Disable();
+        _changeWeapon.performed -= InputHub;
+        _changeWeapon.Disable();
     }
 
     void FixedUpdate()
     {
         _movement = Vector2.zero;
-        _cam.transform.position = new Vector3(transform.position.x, transform.position.y, _cam.transform.position.z);
         _body.linearVelocity = Vector2.ClampMagnitude(_body.linearVelocity, _maxSpeed);
+        UpdateCamPos(0.3f);
         UpdateSpeed();
         if (!_drift.IsPressed())
         {
@@ -139,12 +147,28 @@ public class Player : MonoBehaviour
                 Shoot();
             }
         }
+        if (context.action == _changeWeapon)
+        {
+            if (int.TryParse(context.control.name, out int value))
+            {
+                WeaponChange(value);
+            }
+            else
+            {
+                WeaponChange((int)_weapon._currentWeapon);
+            }
+        }
     }
 
     public void UpdateSpeed()
     {
         _speed = _body.linearVelocity.magnitude;
         _speedUI.text = (Mathf.Round(_speed * 10) * 0.1f) + " m/s";
+    }
+
+    public void UpdateCamPos(float coef)
+    {
+        _cam.transform.position = new Vector3(transform.position.x * coef, transform.position.y * coef, _cam.transform.position.z);
     }
 
     public void UpdateDirection()
@@ -155,14 +179,14 @@ public class Player : MonoBehaviour
         }
         if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
         {
-            _worldMousePosition = _cam.GetComponent<Camera>().ScreenToWorldPoint(new Vector3(_mousePosition.ReadValue<Vector2>().x, _mousePosition.ReadValue<Vector2>().y, 0)) - _cam.transform.position;
-            transform.rotation = Quaternion.Euler(0f, 0f, DirectionToAngle(_worldMousePosition));
+            _worldMousePosition = (Vector2)_cam.GetComponent<Camera>().ScreenToWorldPoint(new Vector3(_mousePosition.ReadValue<Vector2>().x, _mousePosition.ReadValue<Vector2>().y));
+            transform.rotation = Quaternion.Euler(0f, 0f, DirectionToAngle(_worldMousePosition - (Vector2)transform.position));
         }
     }
 
     public void UpdateAim()
     {
-        if (_weapon._laser.currentState == Weapon.CurrentState.Working)
+        if (_weapon._currentWeaponState == Weapon.CurrentState.Working)
         {
             if (_currentDevice == CurrentDevice.Gamepad)
             {
@@ -181,10 +205,10 @@ public class Player : MonoBehaviour
                 switch (_weapon._currentWeapon)
                 {
                     case Weapon.CurrentWeapon.Laser:
-                        _weapon._laser.AimCheck(_worldMousePosition + _weapon.transform.position, Color.red);
+                        _weapon._laser.AimCheck(_worldMousePosition - (Vector2)transform.position, Color.red);
                         break;
                     case Weapon.CurrentWeapon.Rocket:
-                        _weapon._rocket.AimCheck(_worldMousePosition + _weapon.transform.position, Color.red);
+                        _weapon._rocket.AimCheck(_worldMousePosition, Color.red);
                         break;
                 }
             }
@@ -193,7 +217,7 @@ public class Player : MonoBehaviour
 
     public void Shoot()
     {
-        if (_weapon._laser.currentState == Weapon.CurrentState.Working)
+        if (_weapon._currentWeaponState == Weapon.CurrentState.Working)
         {
             if (_currentDevice == CurrentDevice.Gamepad)
             {
@@ -201,9 +225,13 @@ public class Player : MonoBehaviour
                 {
                     case Weapon.CurrentWeapon.Laser:
                         _weapon._laser.AimCheck(_direction.ReadValue<Vector2>() + (Vector2)_weapon.transform.position, Color.white);
+                        _laserWeaponUI.GetComponentInChildren<Animator>().Play("cooldownUI");
+                        _laserWeaponUI.GetComponentInChildren<Animator>().SetFloat("speed", 1 / _weapon._laser.cooldownDuration);
                         break;
                     case Weapon.CurrentWeapon.Rocket:
                         _weapon._rocket.AimCheck(DirectionToAngle(_direction.ReadValue<Vector2>()), Color.red);
+                        _missileWeaponUI.GetComponentInChildren<Animator>().Play("cooldownUI");
+                        _missileWeaponUI.GetComponentInChildren<Animator>().SetFloat("speed", 1 / _weapon._rocket.cooldownDuration);
                         break;
                 }
             }
@@ -212,13 +240,40 @@ public class Player : MonoBehaviour
                 switch (_weapon._currentWeapon)
                 {
                     case Weapon.CurrentWeapon.Laser:
-                        _weapon._laser.Shoot(_worldMousePosition + _weapon.transform.position, Color.white);
+                        _weapon._laser.Shoot(_worldMousePosition - (Vector2)transform.position, Color.white);
+                        _laserWeaponUI.GetComponentInChildren<Animator>().Play("cooldownUI");
+                        _laserWeaponUI.GetComponentInChildren<Animator>().SetFloat("speed", 1 / _weapon._laser.cooldownDuration);
                         break;
                     case Weapon.CurrentWeapon.Rocket:
-                        _weapon._rocket.Shoot(_worldMousePosition + _weapon.transform.position, Color.red);
+                        _weapon._rocket.Shoot(_worldMousePosition, Color.red);
+                        _missileWeaponUI.GetComponentInChildren<Animator>().Play("cooldownUI");
+                        _missileWeaponUI.GetComponentInChildren<Animator>().SetFloat("speed", 1 / _weapon._rocket.cooldownDuration);
                         break;
                 }
             }
+        }
+    }
+
+    public void WeaponChange(int value, bool isInput = true)
+    {
+        if (_currentDevice == CurrentDevice.Gamepad && isInput)
+        {
+            _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp((int)_weapon._currentWeapon + Mathf.Round(_changeWeapon.ReadValue<float>()), 1, 2);
+        }
+        else if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile || !isInput)
+        {
+            _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp(value, 1, 2);
+        }
+        switch (_weapon._currentWeapon)
+        {
+            case Weapon.CurrentWeapon.Laser:
+                _laserWeaponUI.GetComponent<Image>().color = new Color(1f, 0, 0, 1f);
+                _missileWeaponUI.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.1f);
+                break;
+            case Weapon.CurrentWeapon.Rocket:
+                _laserWeaponUI.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.1f);
+                _missileWeaponUI.GetComponent<Image>().color = new Color(1f, 0f, 0f, 1f);
+                break;
         }
     }
 
@@ -235,7 +290,7 @@ public class Player : MonoBehaviour
             {
                 if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
                 {
-                    _body.linearVelocity = _worldMousePosition.normalized * _speed;
+                    _body.linearVelocity = (_worldMousePosition - (Vector2)transform.position).normalized * _speed;
                 }
                 else if (_currentDevice == CurrentDevice.Gamepad)
                 {

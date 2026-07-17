@@ -43,10 +43,10 @@ public class Shooter : MonoBehaviour
                             switch (_currentState)
                             {
                                 case CurrentState.Aiming:
-                                    _weapon._laser.AimCheck((Vector2)_aimPoint, Color.red);
+                                    _weapon._laser.AimCheck((Vector2)_aimPoint - (Vector2)transform.position, Color.red);
                                     break;
                                 case CurrentState.Shooting:
-                                    _weapon._laser.AimCheck((Vector2)_aimPoint, Color.yellow);
+                                    _weapon._laser.AimCheck((Vector2)_aimPoint - (Vector2)transform.position, Color.yellow);
                                     break;
                                 case CurrentState.Waiting:
                                     StartCoroutine(IAim(_aimDuration));
@@ -87,7 +87,7 @@ public class Shooter : MonoBehaviour
         }
         else if (_currentState != CurrentState.Shooting)
         {
-            transform.rotation = Quaternion.Euler(0f, 0f, Player._player.DirectionToAngle(Player._player.gameObject.transform.position));
+            transform.rotation = Quaternion.Euler(0f, 0f, Player._player.DirectionToAngle(Player._player.gameObject.transform.position - transform.position));
         }
     }
 
@@ -105,7 +105,7 @@ public class Shooter : MonoBehaviour
         switch (_weapon._currentWeapon)
         {
             case Weapon.CurrentWeapon.Laser:
-                _weapon._laser.Shoot((Vector2)_aimPoint, Color.white);
+                _weapon._laser.Shoot((Vector2)_aimPoint - (Vector2)transform.position, Color.white);
                 break;
             case Weapon.CurrentWeapon.Rocket:
                 _weapon._rocket.Shoot(Player._player.gameObject);

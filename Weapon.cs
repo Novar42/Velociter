@@ -16,7 +16,7 @@ public class Weapon : MonoBehaviour
     public CurrentState _currentWeaponState;
     public Laser _laser;
     public Rocket _rocket;
-    public enum CurrentWeapon {Laser, Rocket}
+    public enum CurrentWeapon {Laser = 1, Rocket = 2}
     public enum CurrentState {Working, Cooldown, Disabled}
 
     void FixedUpdate()
@@ -44,6 +44,7 @@ public class Weapon : MonoBehaviour
         public float range;
         public float cooldownDuration;
         public bool equiped;
+        public GameObject particleEffect;
         public CurrentState currentState;
 
         public void Shoot(Vector2 target, Color color)
@@ -67,13 +68,22 @@ public class Weapon : MonoBehaviour
                         hit.transform?.gameObject.GetComponent<EnnemiHealth>()?.HealthChange(-damages);
                         break;
                 }
+                if (hit.transform != null && particleEffect != null)
+                {
+                    GameObject particle = Instantiate(particleEffect);
+                    particle.transform.position = hit.point;
+                    var main = particle.GetComponent<ParticleSystem>().main;
+                    main.startSpeed = new ParticleSystem.MinMaxCurve(particleEffect.GetComponent<ParticleSystem>().main.startSpeed.constantMin * this.damages, particleEffect.GetComponent<ParticleSystem>().main.startSpeed.constantMax * this.damages);
+                    var emission = particle.GetComponent<ParticleSystem>().emission;
+                    emission.rateOverTime = new ParticleSystem.MinMaxCurve(particleEffect.GetComponent<ParticleSystem>().emission.rateOverTime.constant * this.damages);
+                }
                 script.StartCoroutine(this.ICooldown(this.cooldownDuration));
             }
         }
 
         public RaycastHit2D AimCheck(Vector2 target, Color color)
         {
-            RaycastHit2D hit = Physics2D.Raycast((Vector2)script.gameObject.transform.position, target - (Vector2)script.gameObject.transform.position, range, script._shootInteract);
+            RaycastHit2D hit = Physics2D.Raycast((Vector2)script.gameObject.transform.position, target, range, script._shootInteract);
             if (currentState == CurrentState.Working)
             {
                 script._line.enabled = true;

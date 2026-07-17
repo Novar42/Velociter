@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 public class Missile : MonoBehaviour
 {
-    public GameObject _target, _explosionEffect;
+    public GameObject _target, _explosionEffect, _explosionParticle;
     public Rigidbody2D _body;
     public CircleCollider2D _explosionCollider;
     public Vector2 _direction;
@@ -51,6 +51,8 @@ public class Missile : MonoBehaviour
     {
         if (_canExplode)
         {
+            _canExplode = false;
+            ParticleEffect();
             foreach(var item in _objectsInExplosion)
             {
                 if (item.TryGetComponent<EnnemiHealth>(out EnnemiHealth ennemiHealth))
@@ -62,10 +64,32 @@ public class Missile : MonoBehaviour
                     player.HealthChange(-_launcher._rocket.damages);
                 }
             }
+            _healthSystem.HealthChange(-_launcher._rocket.damages);
         }
-        _healthSystem.HealthChange(-_launcher._rocket.damages);
     }
 
+    public void ParticleEffect()
+    {
+        GameObject explosion = Instantiate(_explosionParticle);
+        explosion.transform.position = transform.position;
+        var main = explosion.GetComponent<ParticleSystem>().main;
+        main.startSize = new ParticleSystem.MinMaxCurve(_explosionParticle.GetComponent<ParticleSystem>().main.startSize.constantMin * _launcher._rocket.explosionRadius, _explosionParticle.GetComponent<ParticleSystem>().main.startSize.constantMax * _launcher._rocket.explosionRadius);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(_explosionParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMin * _launcher._rocket.explosionRadius, _explosionParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMax * _launcher._rocket.explosionRadius);
+        var shape = explosion.GetComponent<ParticleSystem>().shape;
+        if (transform.localScale.x == transform.localScale.y)
+        {
+            shape.radius = transform.localScale.x;
+            shape.scale = new Vector3(1f, 1f, 1f);
+        }
+        else
+        {
+            shape.radius = 1f;
+            shape.scale = new Vector3(transform.localScale.x, transform.localScale.y, 1f);
+        }
+        var emission = explosion.GetComponent<ParticleSystem>().emission;
+        emission.rateOverTime = new ParticleSystem.MinMaxCurve(_explosionParticle.GetComponent<ParticleSystem>().emission.rateOverTime.constant * _launcher._rocket.explosionRadius * _launcher._rocket.damages);
+    }
+    
     public void OnCollisionEnter2D(Collision2D collision)
     {
         if (!_launcher._parents.Contains(collision.gameObject))
