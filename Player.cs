@@ -11,7 +11,6 @@ public class Player : MonoBehaviour
     public static Player _player;
     public GameObject _cam;
     public Rigidbody2D _body;
-    public List<GameObject> enemies = new List<GameObject>();
 
     [Header("health")]
     public int _health;
@@ -39,6 +38,9 @@ public class Player : MonoBehaviour
     public float _maxSpeed;
     public TMP_Text _speedUI;
     public Vector2 _movement;
+
+    [Header("UI")]
+    public TMP_Text _waveUI;
 
     [Header("Inputs")]
     public Vector2 _worldMousePosition;
@@ -83,6 +85,7 @@ public class Player : MonoBehaviour
 
     void OnDisable()
     {
+        _player = null;
         _mousePosition.performed -= InputHub;
         _mousePosition.Disable();
         _direction.performed -= InputHub;
@@ -100,7 +103,8 @@ public class Player : MonoBehaviour
     {
         _movement = Vector2.zero;
         _body.linearVelocity = Vector2.ClampMagnitude(_body.linearVelocity, _maxSpeed);
-        UpdateCamPos(0.3f);
+        UpdateDirection();
+        UpdateCamPos(0.4f);
         UpdateSpeed();
         if (!_drift.IsPressed())
         {
@@ -126,10 +130,6 @@ public class Player : MonoBehaviour
         else if (context.control.device is Touchscreen)
         {
             _currentDevice = CurrentDevice.Mobile;
-        }
-        if (context.action == _mousePosition || context.action == _direction)
-        {
-            UpdateDirection();
         }
         if (context.action == _dash)
         {
@@ -169,6 +169,7 @@ public class Player : MonoBehaviour
     public void UpdateCamPos(float coef)
     {
         _cam.transform.position = new Vector3(transform.position.x * coef, transform.position.y * coef, _cam.transform.position.z);
+        _cam.GetComponent<Camera>().orthographicSize = Mathf.Clamp(12.5f + _speed * 0.1f, 10f, 25f);
     }
 
     public void UpdateDirection()
@@ -363,7 +364,7 @@ public class Player : MonoBehaviour
 
     public void Die()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        GameManager._gameManager.SceneChange("Menu");
     }
 
     public float DirectionToAngle(Vector2 direction)

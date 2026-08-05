@@ -136,7 +136,7 @@ public class Weapon : MonoBehaviour
 
         public void Shoot(float angle, Color color)
         {
-            if (Player._player.enemies.Count > 0 && currentState == CurrentState.Working)
+            if (GameManager._gameManager._enemiesInScene.Count > 0 && currentState == CurrentState.Working)
             {
                 GameObject missile = Instantiate(prefabMissile);
                 missile.transform.position = script.gameObject.transform.TransformPoint(Vector3.up);
@@ -162,11 +162,11 @@ public class Weapon : MonoBehaviour
 
         public GameObject AimCheck(Vector2 pos, Color color)
         {
-            if (Player._player.enemies.Count > 0 && currentState == CurrentState.Working)
+            if (GameManager._gameManager._enemiesInScene.Count > 0 && currentState == CurrentState.Working)
             {
-                float distance = Vector2.Distance(pos, (Vector2)Player._player.enemies[0].transform.position);
+                float distance = Vector2.Distance(pos, (Vector2)GameManager._gameManager._enemiesInScene[0].transform.position);
                 GameObject closestEnemy = null;
-                foreach (var item in Player._player.enemies)
+                foreach (var item in GameManager._gameManager._enemiesInScene)
                 {
                     if (Vector2.Distance(pos, (Vector2)item.transform.position) < distance || closestEnemy == null)
                     {
@@ -188,11 +188,11 @@ public class Weapon : MonoBehaviour
 
         public GameObject AimCheck(float angle, Color color)
         {
-            if (Player._player.enemies.Count > 0 && currentState == CurrentState.Working)
+            if (GameManager._gameManager._enemiesInScene.Count > 0 && currentState == CurrentState.Working)
             {
-                float distance = Mathf.Abs(angle - Vector2.Angle(Vector2.right, (Vector2)Player._player.enemies[0].transform.position - (Vector2)script.gameObject.transform.position));
+                float distance = Mathf.Abs(angle - Vector2.Angle(Vector2.right, (Vector2)GameManager._gameManager._enemiesInScene[0].transform.position - (Vector2)script.gameObject.transform.position));
                 GameObject closestEnemy = null;
-                foreach (var item in Player._player.enemies)
+                foreach (var item in GameManager._gameManager._enemiesInScene)
                 {
                     if (Mathf.Abs(angle - Vector2.Angle(Vector2.right, (Vector2)item.transform.position - (Vector2)script.gameObject.transform.position)) < distance || closestEnemy == null)
                     {

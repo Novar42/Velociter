@@ -17,7 +17,7 @@ public class Missile : MonoBehaviour
 
     public void Start()
     {
-        Player._player.enemies.Add(gameObject);
+        GameManager._gameManager._enemiesInScene.Add(gameObject);
         _launcher._rocket.rotationSpeed = Mathf.Clamp(_launcher._rocket.rotationSpeed, 0f, 1f);
         _body.linearDamping = _launcher._rocket.precision;
         _explosionEffect.transform.localScale = new Vector3(_launcher._rocket.explosionRadius, _launcher._rocket.explosionRadius, 1f);

@@ -19,12 +19,17 @@ public class EnnemiHealth : MonoBehaviour
             _health += value;
             if (_health <= 0)
             {
-                Player._player.enemies.Remove(gameObject);
+                GameManager._gameManager._enemiesInScene.Remove(gameObject);
+                if (TryGetComponent<Shooter>(out Shooter shooter))
+                {
+                    Player._player.DashChange(shooter._difficulty);
+                }
                 if (TryGetComponent<Missile>(out Missile missile))
                 {
                     missile.Explode();
                 }
                 Destroy(gameObject, 0.01f);
+
             }
         }
     }

@@ -4,6 +4,7 @@ using System.Collections;
 public class Shooter : MonoBehaviour
 {
     public float _range, _enableRange, _aimDuration, _shootDuration;
+    public int _difficulty;
     public Vector3 _aimPoint;
     public enum CurrentState {Aiming, Shooting, Waiting, Disabled}
     public CurrentState _currentState;
@@ -14,11 +15,6 @@ public class Shooter : MonoBehaviour
     public void Awake()
     {
         _currentState = CurrentState.Disabled;
-    }
-
-    void Start()
-    {
-        Player._player.enemies.Add(gameObject);
     }
 
     void FixedUpdate()
