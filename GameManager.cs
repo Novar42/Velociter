@@ -3,29 +3,43 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using Random = UnityEngine.Random;
 
 public class GameManager : MonoBehaviour
 {
+    [Header("General")]
     public static GameManager _gameManager;
     public enum GameState {InMenu = 0, InWaveGame = 1, InPause = 2}
     public GameState _gameState;
     public List<GameObject> _enemiesPrefabs = new List<GameObject>();
     public List<GameObject> _enemiesInScene = new List<GameObject>();
+
+    [Header("Menu")]
+    public GameObject firstSelected;
+
+    [Header("WaveMode")]
     public WaveManager _waveManager;
     public bool inWave = true;
+
+    [Header("Particles")]
+    public GameObject _explosionParticle;
+    public GameObject _hitParticle;
+    public GameObject _dashParticle;
 
     [Serializable]
     public class WaveManager
     {
         public GameManager script;
-        public int _waveNumber = 0;
-        public float _waveChangeDuration = 2f;
+        public int _waveNumber;
+        public float _waveChangeDuration;
         public List<GameObject> _enemiesToSpawn = new List<GameObject>();
 
         public IEnumerator IWaveChange()
         {
             script.inWave = false;
+            int enemyNumber = Mathf.RoundToInt(_waveNumber / 2);
             _waveNumber++;
             _enemiesToSpawn.Clear();
             for (int restDifficulty = _waveNumber; restDifficulty > 0;)
@@ -46,18 +60,18 @@ public class GameManager : MonoBehaviour
             Player._player._waveUI.text = "Wave " + _waveNumber;
             foreach(var item in _enemiesToSpawn)
             {
-                SpawnEnemy(item);
+                SpawnEnemy(item, 7.5f);
             }
             script.inWave = true;
         }
 
-        public void SpawnEnemy(GameObject enemy)
+        public void SpawnEnemy(GameObject enemy, float distance = 5f)
         {
             for (int i = 1; i < 100; i++)
             {
                 Vector2 spawnPos = new Vector2(Random.Range(-i, i), Random.Range(-i, i));
                 bool canSpawn = true;
-                if (Vector2.Distance(spawnPos, Player._player.gameObject.transform.position) < 5f)
+                if (Vector2.Distance(spawnPos, Player._player.gameObject.transform.position) < distance)
                 {
                     canSpawn = false;
                 }
@@ -65,7 +79,7 @@ public class GameManager : MonoBehaviour
                 {
                     foreach (var item in script._enemiesInScene)
                     {
-                        if (Vector2.Distance(spawnPos, item.transform.position) < 5f)
+                        if (Vector2.Distance(spawnPos, item.transform.position) < distance)
                         {
                             canSpawn = false;
                             break;
@@ -83,9 +97,11 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        public WaveManager(GameManager script)
+        public WaveManager(GameManager script, int waveNumber, float waveChangeDuration)
         {
             this.script = script;
+            this._waveNumber = waveNumber;
+            this._waveChangeDuration = waveChangeDuration;
         }
     }
 
@@ -116,6 +132,24 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void CameraShake(int duration, float magnitude)
+    {
+        IEnumerator ICameraShake()
+        {
+            for (int i = 0; i < duration; i++)
+            {
+                Camera.main.transform.position += (Vector3)Random.insideUnitCircle * magnitude;
+                yield return new WaitForSeconds(0.05f);
+            }
+        }
+        StartCoroutine(ICameraShake());
+    }
+
+    public bool IsOnUI()
+    {
+        return EventSystem.current.IsPointerOverGameObject();
+    }
+
     public void OnDisable()
     {
         _gameManager = null;
@@ -128,10 +162,14 @@ public class GameManager : MonoBehaviour
         {
             case "Menu":
                 _gameState = GameState.InMenu;
+                if (firstSelected != null)
+                {
+                    EventSystem.current.SetSelectedGameObject(firstSelected);
+                }
                 break;
             case "WaveGame":
                 _gameState = GameState.InWaveGame;
-                _waveManager = new WaveManager(this);
+                _waveManager = new WaveManager(this, _waveManager._waveNumber, _waveManager._waveChangeDuration);
                 StartCoroutine(_waveManager.IWaveChange());
                 break;
         }

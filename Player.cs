@@ -5,18 +5,22 @@ using UnityEngine.UI;
 using TMPro;
 using System;
 using System.Collections.Generic;
+using System.Collections;
 
 public class Player : MonoBehaviour
 {
     public static Player _player;
-    public GameObject _cam;
+    public GameObject _cam, _UIcam;
+    public GameObject[] _propels;
     public Rigidbody2D _body;
+    public Animator _animator;
 
     [Header("health")]
     public int _health;
     public int _maxHealth;
     public GameObject _prefabHealthUI;
     public GameObject _healthCountUI;
+    public bool _isDiing = false;
 
     [Header("Weapon")]
     public Weapon _weapon;
@@ -24,32 +28,44 @@ public class Player : MonoBehaviour
     public float _range;
     public GameObject _laserWeaponUI;
     public GameObject _missileWeaponUI;
+    public GameObject _weaponButton;
 
     [Header("Dash")]
     public int _dashCount;
     public int _maxDash;
     public GameObject _prefabDashUI;
     public GameObject _dashCountUI;
+    public GameObject _dashButton;
     public bool _canDash = true;
 
     [Header("Movement")]
+    public Vector2 _movement;
     public float _speed;
     public float _acceleration;
     public float _maxSpeed;
     public TMP_Text _speedUI;
-    public Vector2 _movement;
+    public GameObject _joystick;
+    public bool _isDrifting = false;
 
     [Header("UI")]
     public TMP_Text _waveUI;
+    public Color _defaultUIColor;
+    public float _camCoeff;
+    public float _camDamping;
 
     [Header("Inputs")]
-    public Vector2 _worldMousePosition;
-    public enum CurrentDevice {Gamepad, Keyboard, Mobile}
+    public Vector2 _worldMousePosition, _savedDirection;
+    public enum CurrentDevice {Gamepad, Keyboard, Mobile, Unknow}
     public CurrentDevice _currentDevice;
     private InputAction _mousePosition, _direction, _dash, _drift, _shoot, _changeWeapon;
 
     void Awake()
     {
+        StopAllCoroutines();
+        if (Time.timeScale != 1)
+        {
+            Time.timeScale = 1f;
+        }
         _player = this;
         _mousePosition = InputSystem.actions.FindAction("Mouse Position");
         _direction = InputSystem.actions.FindAction("Direction");
@@ -65,17 +81,24 @@ public class Player : MonoBehaviour
         {
             Instantiate(_prefabDashUI, _dashCountUI.transform);
         }
-        WeaponChange(1, false);
+        _currentDevice = CurrentDevice.Unknow;
+        UIChangeColor(_defaultUIColor);
+        WeaponChange(1);
     }
 
     void OnEnable()
     {
         _mousePosition.performed += InputHub;
+        _mousePosition.canceled += InputHub;
         _mousePosition.Enable();
         _direction.performed += InputHub;
+        _direction.canceled += InputHub;
         _direction.Enable();
         _dash.performed += InputHub;
         _dash.Enable();
+        _drift.performed += InputHub;
+        _drift.canceled += InputHub;
+        _drift.Enable();
         _shoot.performed += InputHub;
         _shoot.canceled += InputHub;
         _shoot.Enable();
@@ -87,11 +110,16 @@ public class Player : MonoBehaviour
     {
         _player = null;
         _mousePosition.performed -= InputHub;
+        _mousePosition.canceled -= InputHub;
         _mousePosition.Disable();
         _direction.performed -= InputHub;
+        _direction.canceled -= InputHub;
         _direction.Disable();
         _dash.performed -= InputHub;
         _dash.Disable();
+        _drift.performed -= InputHub;
+        _drift.canceled -= InputHub;
+        _drift.Disable();
         _shoot.performed -= InputHub;
         _shoot.canceled -= InputHub;
         _shoot.Disable();
@@ -102,12 +130,15 @@ public class Player : MonoBehaviour
     void FixedUpdate()
     {
         _movement = Vector2.zero;
-        _body.linearVelocity = Vector2.ClampMagnitude(_body.linearVelocity, _maxSpeed);
-        UpdateDirection();
-        UpdateCamPos(0.4f);
-        UpdateSpeed();
-        if (!_drift.IsPressed())
+        if (!_isDiing)
         {
+            UpdateDirection();
+        }
+        UpdateCam(_camCoeff, _camDamping);
+        UpdateSpeed();
+        if (!_isDrifting)
+        {
+            _body.linearVelocity = Vector2.ClampMagnitude(_body.linearVelocity, _maxSpeed);
             _movement = Vector2.up * _acceleration;
         }
         if (_isShooting)
@@ -119,43 +150,69 @@ public class Player : MonoBehaviour
 
     public void InputHub(InputAction.CallbackContext context)
     {
-        if (context.control.device is Gamepad)
+        if (context.control.device is Gamepad && _currentDevice != CurrentDevice.Gamepad)
         {
+            _joystick.SetActive(false);
+            _dashButton.SetActive(false);
+            _weaponButton.SetActive(false);
+            _laserWeaponUI.transform.parent.localScale = new Vector3(0.05f, 0.05f, 1f);
             _currentDevice = CurrentDevice.Gamepad;
         }
-        else if (context.control.device is Keyboard || context.control.device is Mouse)
+        else if ((context.control.device is Keyboard || context.control.device is Mouse) && _currentDevice != CurrentDevice.Keyboard)
         {
+            _joystick.SetActive(false);
+            _dashButton.SetActive(false);
+            _weaponButton.SetActive(false);
+            _laserWeaponUI.transform.parent.localScale = new Vector3(0.05f, 0.05f, 1f);
             _currentDevice = CurrentDevice.Keyboard;
         }
-        else if (context.control.device is Touchscreen)
+        else if (context.control.device is Touchscreen && _currentDevice != CurrentDevice.Mobile)
         {
+            _joystick.SetActive(true);
+            _dashButton.SetActive(true);
+            _weaponButton.SetActive(true);
+            _laserWeaponUI.transform.parent.localScale = new Vector3(0.06f, 0.06f, 1f);
             _currentDevice = CurrentDevice.Mobile;
         }
-        if (context.action == _dash)
+        if (!_isDiing)
         {
-            Dash();
-        }
-        if (context.action == _shoot)
-        {
-            if (context.performed)
+            if (context.action == _dash)
             {
-                _isShooting = true;
+                Dash();
             }
-            if (context.canceled)
+            if (context.action == _drift)
             {
-                _isShooting = false;
-                Shoot();
+                if (context.performed)
+                {
+                    _isDrifting = true;
+                }
+                if (context.canceled)
+                {
+                    _isDrifting = false;
+                }
             }
-        }
-        if (context.action == _changeWeapon)
-        {
-            if (int.TryParse(context.control.name, out int value))
+            if (context.action == _shoot)
             {
-                WeaponChange(value);
+                if (context.performed && !GameManager._gameManager.IsOnUI())
+                {
+                    _isShooting = true;
+                }
+                if (context.canceled && _isShooting)
+                {
+                    _isShooting = false;
+                    Shoot();
+                }
             }
-            else
+            if (context.action == _changeWeapon)
             {
-                WeaponChange((int)_weapon._currentWeapon);
+                if (int.TryParse(context.control.name, out int value))
+                {
+                    WeaponChange(value);
+                }
+                else
+                {
+                    WeaponChange((int)_weapon._currentWeapon);
+                }
             }
         }
     }
@@ -166,22 +223,58 @@ public class Player : MonoBehaviour
         _speedUI.text = (Mathf.Round(_speed * 10) * 0.1f) + " m/s";
     }
 
-    public void UpdateCamPos(float coef)
+    public void UpdateCam(float coef, float damp)
     {
-        _cam.transform.position = new Vector3(transform.position.x * coef, transform.position.y * coef, _cam.transform.position.z);
-        _cam.GetComponent<Camera>().orthographicSize = Mathf.Clamp(12.5f + _speed * 0.1f, 10f, 25f);
+        _cam.transform.position = Vector3.Lerp(_cam.transform.position, new Vector3(transform.position.x * coef, transform.position.y * coef, _cam.transform.position.z), damp);
+        _cam.GetComponent<Camera>().orthographicSize = Mathf.Lerp(_cam.GetComponent<Camera>().orthographicSize, Mathf.Clamp(12.5f + _speed * 0.1f, 10f, 25f), damp);
+        _UIcam.transform.position = Vector3.forward * (-60 + _speed * 0.1f);
+        _UIcam.GetComponent<Camera>().fieldOfView = Mathf.Clamp(27.5f + _speed * 0.1f, 10f, 30f);
     }
 
     public void UpdateDirection()
     {
         if (_currentDevice == CurrentDevice.Gamepad)
         {
-            transform.rotation = Quaternion.Euler(0f, 0f, DirectionToAngle(_direction.ReadValue<Vector2>()));
+            _savedDirection = Vector2.Lerp(_savedDirection, _direction.ReadValue<Vector2>(), 0.5f);
+            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(0f, 0f, DirectionToAngle(_direction.ReadValue<Vector2>())), 0.5f);
         }
-        if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
+        if (_currentDevice == CurrentDevice.Keyboard)
         {
             _worldMousePosition = (Vector2)_cam.GetComponent<Camera>().ScreenToWorldPoint(new Vector3(_mousePosition.ReadValue<Vector2>().x, _mousePosition.ReadValue<Vector2>().y));
-            transform.rotation = Quaternion.Euler(0f, 0f, DirectionToAngle(_worldMousePosition - (Vector2)transform.position));
+            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(0f, 0f, DirectionToAngle(_worldMousePosition - (Vector2)transform.position)), 0.5f);
+        }
+        if (_currentDevice == CurrentDevice.Mobile)
+        {
+            _savedDirection = Vector2.Lerp(_savedDirection, (Vector2)(_joystick.transform.GetChild(0).GetChild(0).position - _joystick.transform.GetChild(0).position).normalized, 0.5f);
+            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(0f, 0f, DirectionToAngle((Vector2)(_joystick.transform.GetChild(0).GetChild(0).position - _joystick.transform.GetChild(0).position).normalized)), 0.5f);
+        }
+        if (!_isDrifting)
+        {
+            float distance = Vector2.Distance(-_body.linearVelocity, (Vector2)(_propels[0].transform.position - transform.position));
+            GameObject closestPropel = null;
+            foreach (var item in _propels)
+            {
+                if (Vector2.Distance(-_body.linearVelocity, (Vector2)(item.transform.position - transform.position)) < distance)
+                {
+                    distance = Vector2.Distance(-_body.linearVelocity, (Vector2)(item.transform.position - transform.position));
+                    closestPropel = item;
+                }
+                else
+                {
+                    item.GetComponent<SpriteRenderer>().color = new Color(0f, 1f, 1f, Mathf.Clamp(item.GetComponent<SpriteRenderer>().color.a - 0.05f * Time.fixedDeltaTime, 0.3f, 0.6f));
+                }
+            }
+            if (closestPropel != null)
+            {
+                closestPropel.GetComponent<SpriteRenderer>().color = new Color(0f, 1f, 1f, Mathf.Clamp(closestPropel.GetComponent<SpriteRenderer>().color.a + 0.5f * Time.fixedDeltaTime, 0.3f, 0.6f));
+            }
+        }
+        else
+        {
+            foreach (var item in _propels)
+            {
+                item.GetComponent<SpriteRenderer>().color = new Color(0f, 1f, 1f, Mathf.Clamp(item.GetComponent<SpriteRenderer>().color.a - 0.5f * Time.fixedDeltaTime, 0f, 1f));
+            }
         }
     }
 
@@ -189,24 +282,24 @@ public class Player : MonoBehaviour
     {
         if (_weapon._currentWeaponState == Weapon.CurrentState.Working)
         {
-            if (_currentDevice == CurrentDevice.Gamepad)
+            if (_currentDevice == CurrentDevice.Gamepad || _currentDevice == CurrentDevice.Mobile)
             {
                 switch (_weapon._currentWeapon)
                 {
                     case Weapon.CurrentWeapon.Laser:
-                        _weapon._laser.AimCheck(_direction.ReadValue<Vector2>() + (Vector2)_weapon.transform.position, Color.red);
+                        _weapon._laser.AimCheck(_savedDirection, Color.red);
                         break;
                     case Weapon.CurrentWeapon.Rocket:
-                        _weapon._rocket.AimCheck(DirectionToAngle(_direction.ReadValue<Vector2>()), Color.red);
+                        _weapon._rocket.AimCheck(DirectionToAngle(_savedDirection), Color.red);
                         break;
                 }
             }
-            if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
+            if (_currentDevice == CurrentDevice.Keyboard)
             {
                 switch (_weapon._currentWeapon)
                 {
                     case Weapon.CurrentWeapon.Laser:
-                        _weapon._laser.AimCheck(_worldMousePosition - (Vector2)transform.position, Color.red);
+                        _weapon._laser.AimCheck((_worldMousePosition - (Vector2)transform.position).normalized, Color.red);
                         break;
                     case Weapon.CurrentWeapon.Rocket:
                         _weapon._rocket.AimCheck(_worldMousePosition, Color.red);
@@ -220,23 +313,23 @@ public class Player : MonoBehaviour
     {
         if (_weapon._currentWeaponState == Weapon.CurrentState.Working)
         {
-            if (_currentDevice == CurrentDevice.Gamepad)
+            if (_currentDevice == CurrentDevice.Gamepad || _currentDevice == CurrentDevice.Mobile)
             {
                 switch (_weapon._currentWeapon)
                 {
                     case Weapon.CurrentWeapon.Laser:
-                        _weapon._laser.AimCheck(_direction.ReadValue<Vector2>() + (Vector2)_weapon.transform.position, Color.white);
+                        _weapon._laser.Shoot(_savedDirection, Color.white);
                         _laserWeaponUI.GetComponentInChildren<Animator>().Play("cooldownUI");
                         _laserWeaponUI.GetComponentInChildren<Animator>().SetFloat("speed", 1 / _weapon._laser.cooldownDuration);
                         break;
                     case Weapon.CurrentWeapon.Rocket:
-                        _weapon._rocket.AimCheck(DirectionToAngle(_direction.ReadValue<Vector2>()), Color.red);
+                        _weapon._rocket.Shoot(DirectionToAngle(_savedDirection), Color.red);
                         _missileWeaponUI.GetComponentInChildren<Animator>().Play("cooldownUI");
                         _missileWeaponUI.GetComponentInChildren<Animator>().SetFloat("speed", 1 / _weapon._rocket.cooldownDuration);
                         break;
                 }
             }
-            if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
+            if (_currentDevice == CurrentDevice.Keyboard)
             {
                 switch (_weapon._currentWeapon)
                 {
@@ -255,13 +348,15 @@ public class Player : MonoBehaviour
         }
     }
 
-    public void WeaponChange(int value, bool isInput = true)
+    public void WeaponChange(int value)
     {
-        if (_currentDevice == CurrentDevice.Gamepad && isInput)
+        _weapon._line.enabled = false;
+        _weapon._viseur.SetActive(false);
+        if (_currentDevice == CurrentDevice.Gamepad && _changeWeapon.WasPerformedThisFrame())
         {
             _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp((int)_weapon._currentWeapon + Mathf.Round(_changeWeapon.ReadValue<float>()), 1, 2);
         }
-        else if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile || !isInput)
+        else if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile || !_changeWeapon.WasPerformedThisFrame())
         {
             _weapon._currentWeapon = (Weapon.CurrentWeapon)Mathf.Clamp(value, 1, 2);
         }
@@ -298,6 +393,36 @@ public class Player : MonoBehaviour
                     _body.linearVelocity = _direction.ReadValue<Vector2>() * _speed;
                 }
             }
+            GameObject particle = Instantiate(GameManager._gameManager._dashParticle);
+            particle.transform.position = transform.position;
+            var main = particle.GetComponent<ParticleSystem>().main;
+            main.startSpeed = new ParticleSystem.MinMaxCurve(GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMin * _speed / 2, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMax * _speed);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMin.r, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMin.g, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMin.b, Mathf.Clamp(_speed / _maxSpeed - 0.1f, 0, 1)), new Color(GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMax.r, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMax.g, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMax.b, Mathf.Clamp(_speed / _maxSpeed + 0.1f, 0, 1)));
+            var emission = particle.GetComponent<ParticleSystem>().emission;
+            emission.rateOverTime = new ParticleSystem.MinMaxCurve(GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().emission.rateOverTime.constant * _speed / _maxSpeed);
+        }
+    }
+
+    public void Dash()
+    {
+        if (_canDash)
+        {
+            DashChange(-1);
+            if (_currentDevice == CurrentDevice.Keyboard || _currentDevice == CurrentDevice.Mobile)
+            {
+                _body.linearVelocity = (_worldMousePosition - (Vector2)transform.position).normalized * _speed;
+            }
+            else if (_currentDevice == CurrentDevice.Gamepad)
+            {
+                _body.linearVelocity = _direction.ReadValue<Vector2>() * _speed;
+            }
+            GameObject particle = Instantiate(GameManager._gameManager._dashParticle);
+            particle.transform.position = transform.position;
+            var main = particle.GetComponent<ParticleSystem>().main;
+            main.startSpeed = new ParticleSystem.MinMaxCurve(GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMin * _speed / 2, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMax * _speed);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMin.r, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMin.g, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMin.b, Mathf.Clamp(_speed / _maxSpeed - 0.1f, 0, 1)), new Color(GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMax.r, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMax.g, GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().main.startColor.colorMax.b, Mathf.Clamp(_speed / _maxSpeed + 0.1f, 0, 1)));
+            var emission = particle.GetComponent<ParticleSystem>().emission;
+            emission.rateOverTime = new ParticleSystem.MinMaxCurve(GameManager._gameManager._dashParticle.GetComponent<ParticleSystem>().emission.rateOverTime.constant * _speed / _maxSpeed);
         }
     }
 
@@ -315,10 +440,11 @@ public class Player : MonoBehaviour
         {
             images.Reverse();
             GaugeChangeUI(images, amout);
+            _animator.Play("damageTaken");
         }
         if (_health == 0)
         {
-            Die();
+            StartCoroutine(IDie());
         }
     }
 
@@ -362,9 +488,37 @@ public class Player : MonoBehaviour
         }
     }
 
-    public void Die()
+    public IEnumerator IDie(float slowMotionDuration = 1.5f)
     {
+        _isDiing = true;
+        UIChangeColor(Color.red);
+        foreach (var item in _propels)
+        {
+            item.GetComponent<SpriteRenderer>().color = new Color(0f, 1f, 1f, 0f);
+        }
+        _isDrifting = true;
+        _body.linearDamping = 1f;
+        Time.timeScale = 0.2f;
+        yield return new WaitForSecondsRealtime(slowMotionDuration);
+        Time.timeScale = 1f;
+        yield return new WaitForSecondsRealtime(1f);
         GameManager._gameManager.SceneChange("Menu");
+    }
+
+    public void UIChangeColor(Color color, GameObject UI = null)
+    {
+        if (UI == null)
+        {
+            _healthCountUI.GetComponent<Image>().color = color;
+            _dashCountUI.GetComponent<Image>().color = color;
+            _speedUI.gameObject.transform.parent.gameObject.GetComponent<Image>().color = color;
+            _waveUI.gameObject.transform.parent.gameObject.GetComponent<Image>().color = color;
+            _laserWeaponUI.transform.parent.gameObject.GetComponent<Image>().color = color;
+        }
+        else
+        {
+            UI.GetComponent<Image>().color = color;
+        }
     }
 
     public float DirectionToAngle(Vector2 direction)

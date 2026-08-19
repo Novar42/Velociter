@@ -5,7 +5,7 @@ public class EnnemiHealth : MonoBehaviour
 {
     public float _health, _maxHealth;
     public bool _canHealthChange = true;
-    public GameObject _hitParticle;
+    public Animator _animator;
 
     public void Awake()
     {
@@ -17,6 +17,10 @@ public class EnnemiHealth : MonoBehaviour
         if (_canHealthChange)
         {
             _health += value;
+            if (Mathf.Sign(value) == -1 && _animator != null)
+            {
+                _animator.Play("damageTaken");
+            }
             if (_health <= 0)
             {
                 GameManager._gameManager._enemiesInScene.Remove(gameObject);
@@ -29,21 +33,18 @@ public class EnnemiHealth : MonoBehaviour
                     missile.Explode();
                 }
                 Destroy(gameObject, 0.01f);
-
             }
         }
     }
 
     public void OnCollisionEnter2D(Collision2D collision)
     {
-        if (_hitParticle != null)
-        {
-            GameObject particle = Instantiate(_hitParticle);
-            particle.transform.position = collision.GetContact(0).point;
-            var main = particle.GetComponent<ParticleSystem>().main;
-            main.startSpeed = new ParticleSystem.MinMaxCurve(_hitParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMin * collision.GetContact(0).normalImpulse, _hitParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMax * collision.GetContact(0).normalImpulse);
-            var emission = particle.GetComponent<ParticleSystem>().emission;
-            emission.rateOverTime = new ParticleSystem.MinMaxCurve(_hitParticle.GetComponent<ParticleSystem>().emission.rateOverTime.constant * collision.GetContact(0).normalImpulse);
-        }
+        float impactPower = collision.GetContact(0).relativeVelocity.magnitude;
+        GameObject particle = Instantiate(GameManager._gameManager._hitParticle);
+        particle.transform.position = collision.GetContact(0).point;
+        var main = particle.GetComponent<ParticleSystem>().main;
+        main.startSpeed = new ParticleSystem.MinMaxCurve(GameManager._gameManager._hitParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMin * impactPower, GameManager._gameManager._hitParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMax * impactPower);
+        var emission = particle.GetComponent<ParticleSystem>().emission;
+        emission.rateOverTime = new ParticleSystem.MinMaxCurve(GameManager._gameManager._hitParticle.GetComponent<ParticleSystem>().emission.rateOverTime.constant * impactPower);
     }
 }

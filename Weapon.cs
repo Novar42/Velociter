@@ -16,7 +16,7 @@ public class Weapon : MonoBehaviour
     public CurrentState _currentWeaponState;
     public Laser _laser;
     public Rocket _rocket;
-    public enum CurrentWeapon {Laser = 1, Rocket = 2}
+    public enum CurrentWeapon {Laser = 1, Rocket = 2, ShootGun = 3}
     public enum CurrentState {Working, Cooldown, Disabled}
 
     void FixedUpdate()
@@ -44,7 +44,6 @@ public class Weapon : MonoBehaviour
         public float range;
         public float cooldownDuration;
         public bool equiped;
-        public GameObject particleEffect;
         public CurrentState currentState;
 
         public void Shoot(Vector2 target, Color color)
@@ -68,14 +67,14 @@ public class Weapon : MonoBehaviour
                         hit.transform?.gameObject.GetComponent<EnnemiHealth>()?.HealthChange(-damages);
                         break;
                 }
-                if (hit.transform != null && particleEffect != null)
+                if (hit.transform != null)
                 {
-                    GameObject particle = Instantiate(particleEffect);
+                    GameObject particle = Instantiate(GameManager._gameManager._hitParticle);
                     particle.transform.position = hit.point;
                     var main = particle.GetComponent<ParticleSystem>().main;
-                    main.startSpeed = new ParticleSystem.MinMaxCurve(particleEffect.GetComponent<ParticleSystem>().main.startSpeed.constantMin * this.damages, particleEffect.GetComponent<ParticleSystem>().main.startSpeed.constantMax * this.damages);
+                    main.startSpeed = new ParticleSystem.MinMaxCurve(GameManager._gameManager._hitParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMin * this.damages, GameManager._gameManager._hitParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMax * this.damages);
                     var emission = particle.GetComponent<ParticleSystem>().emission;
-                    emission.rateOverTime = new ParticleSystem.MinMaxCurve(particleEffect.GetComponent<ParticleSystem>().emission.rateOverTime.constant * this.damages);
+                    emission.rateOverTime = new ParticleSystem.MinMaxCurve(GameManager._gameManager._hitParticle.GetComponent<ParticleSystem>().emission.rateOverTime.constant * this.damages);
                 }
                 script.StartCoroutine(this.ICooldown(this.cooldownDuration));
             }
@@ -97,7 +96,7 @@ public class Weapon : MonoBehaviour
             }
             else
             {
-                script._line.SetPosition(1, ((Vector3)target - script.gameObject.transform.position).normalized * range + script.gameObject.transform.position);
+                script._line.SetPosition(1, target * range + (Vector2)script.gameObject.transform.position);
             } 
             return hit;
         }
@@ -119,6 +118,7 @@ public class Weapon : MonoBehaviour
         public int damages;
         public float lifetime, acceleration, maxSpeed, rotationSpeed, explosionRadius, cooldownDuration, precision;
         public bool showViseur, equiped;
+        public Vector2 spawnOffset;
         public CurrentState currentState;
 
         public void Shoot(Vector2 pos, Color color)
@@ -126,7 +126,7 @@ public class Weapon : MonoBehaviour
             if (currentState == CurrentState.Working)
             {
                 GameObject missile = Instantiate(prefabMissile);
-                missile.transform.position = script.gameObject.transform.TransformPoint(Vector3.up);
+                missile.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
                 missile.transform.rotation = script.gameObject.transform.rotation;
                 missile.GetComponent<Missile>()._launcher = script;
                 missile.GetComponent<Missile>()._target = AimCheck(pos, color);
@@ -139,7 +139,7 @@ public class Weapon : MonoBehaviour
             if (GameManager._gameManager._enemiesInScene.Count > 0 && currentState == CurrentState.Working)
             {
                 GameObject missile = Instantiate(prefabMissile);
-                missile.transform.position = script.gameObject.transform.TransformPoint(Vector3.up);
+                missile.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
                 missile.transform.rotation = script.gameObject.transform.rotation;
                 missile.GetComponent<Missile>()._launcher = script;
                 missile.GetComponent<Missile>()._target = AimCheck(angle, color);
@@ -152,7 +152,7 @@ public class Weapon : MonoBehaviour
             if (currentState == CurrentState.Working)
             {
                 GameObject missile = Instantiate(prefabMissile);
-                missile.transform.position = script.gameObject.transform.TransformPoint(Vector3.up);
+                missile.transform.position = script.gameObject.transform.TransformPoint(spawnOffset);
                 missile.transform.rotation = script.gameObject.transform.rotation;
                 missile.GetComponent<Missile>()._launcher = script;
                 missile.GetComponent<Missile>()._target = target;
@@ -177,6 +177,7 @@ public class Weapon : MonoBehaviour
                 script._viseur.GetComponent<SpriteRenderer>().color = color;
                 script._viseur.SetActive(this.showViseur);
                 script._viseur.transform.position = closestEnemy.transform.position;
+                script._viseur.transform.localScale = new Vector3(Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), 1f) * 2f;
                 return closestEnemy;
             }
             else
@@ -203,6 +204,7 @@ public class Weapon : MonoBehaviour
                 script._viseur.GetComponent<SpriteRenderer>().color = color;
                 script._viseur.SetActive(this.showViseur);
                 script._viseur.transform.position = closestEnemy.transform.position;
+                script._viseur.transform.localScale = new Vector3(Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), Mathf.Max(closestEnemy.transform.localScale.x, closestEnemy.transform.localScale.y), 1f) * 2f;
                 return closestEnemy;
             }
             else
@@ -222,5 +224,10 @@ public class Weapon : MonoBehaviour
             yield return new WaitForSeconds(duration);
             currentState = CurrentState.Working;
         }
+    }
+
+    public class ShootGun
+    {
+        
     }
 }

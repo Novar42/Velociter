@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 public class Missile : MonoBehaviour
 {
-    public GameObject _target, _explosionEffect, _explosionParticle;
+    public GameObject _target, _explosionEffect;
     public Rigidbody2D _body;
     public CircleCollider2D _explosionCollider;
     public Vector2 _direction;
@@ -25,6 +25,7 @@ public class Missile : MonoBehaviour
         {
             _body.linearVelocity = parentBody.linearVelocity;
         }
+        GetComponent<CircleCollider2D>().enabled = true;
         StartCoroutine(ILifetime(_launcher._rocket.lifetime));
     }
 
@@ -34,7 +35,6 @@ public class Missile : MonoBehaviour
         {
             _direction = (_target.transform.position - transform.position).normalized;
         }
-        //transform.rotation = Quaternion.Euler(0f, 0f, ((Player._player.DirectionToAngle(_direction) - transform.rotation.eulerAngles.z) * _rocketStats.rotationSpeed * Time.fixedDeltaTime) + transform.rotation.eulerAngles.z) * transform.rotation;
         transform.rotation = Quaternion.Euler(0f, 0f, Player._player.DirectionToAngle(_direction));
         _body.linearVelocity = Vector2.ClampMagnitude(_body.linearVelocity, _launcher._rocket.maxSpeed);
         _speed = _body.linearVelocity.magnitude;
@@ -55,13 +55,22 @@ public class Missile : MonoBehaviour
             ParticleEffect();
             foreach(var item in _objectsInExplosion)
             {
-                if (item.TryGetComponent<EnnemiHealth>(out EnnemiHealth ennemiHealth))
+                switch (item.layer)
                 {
-                    ennemiHealth.HealthChange(-_launcher._rocket.damages);
-                }
-                else if (item.TryGetComponent<Player>(out Player player))
-                {
-                    player.HealthChange(-_launcher._rocket.damages);
+                    case 6:
+                        item.GetComponent<Player>()?.HealthChange(-_launcher._rocket.damages);;
+                        GameManager._gameManager.CameraShake(5, 0.4f);
+                        break;
+                    case 7:
+                        item.GetComponent<EnnemiHealth>()?.HealthChange(-_launcher._rocket.damages);
+                        break;
+                    case 8:
+                        if (item.GetComponent<EnnemiHealth>()?._health <= _launcher._rocket.damages)
+                        {
+                            item.GetComponent<Missile>()?.Explode();
+                        }
+                        item.GetComponent<EnnemiHealth>()?.HealthChange(-_launcher._rocket.damages);
+                        break;
                 }
             }
             _healthSystem.HealthChange(-_launcher._rocket.damages);
@@ -70,11 +79,11 @@ public class Missile : MonoBehaviour
 
     public void ParticleEffect()
     {
-        GameObject explosion = Instantiate(_explosionParticle);
+        GameObject explosion = Instantiate(GameManager._gameManager._explosionParticle);
         explosion.transform.position = transform.position;
         var main = explosion.GetComponent<ParticleSystem>().main;
-        main.startSize = new ParticleSystem.MinMaxCurve(_explosionParticle.GetComponent<ParticleSystem>().main.startSize.constantMin * _launcher._rocket.explosionRadius, _explosionParticle.GetComponent<ParticleSystem>().main.startSize.constantMax * _launcher._rocket.explosionRadius);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(_explosionParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMin * _launcher._rocket.explosionRadius, _explosionParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMax * _launcher._rocket.explosionRadius);
+        main.startSize = new ParticleSystem.MinMaxCurve(GameManager._gameManager._explosionParticle.GetComponent<ParticleSystem>().main.startSize.constantMin * _launcher._rocket.explosionRadius, GameManager._gameManager._explosionParticle.GetComponent<ParticleSystem>().main.startSize.constantMax * _launcher._rocket.explosionRadius);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(GameManager._gameManager._explosionParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMin * _launcher._rocket.explosionRadius, GameManager._gameManager._explosionParticle.GetComponent<ParticleSystem>().main.startSpeed.constantMax * _launcher._rocket.explosionRadius);
         var shape = explosion.GetComponent<ParticleSystem>().shape;
         if (transform.localScale.x == transform.localScale.y)
         {
@@ -87,7 +96,7 @@ public class Missile : MonoBehaviour
             shape.scale = new Vector3(transform.localScale.x, transform.localScale.y, 1f);
         }
         var emission = explosion.GetComponent<ParticleSystem>().emission;
-        emission.rateOverTime = new ParticleSystem.MinMaxCurve(_explosionParticle.GetComponent<ParticleSystem>().emission.rateOverTime.constant * _launcher._rocket.explosionRadius * _launcher._rocket.damages);
+        emission.rateOverTime = new ParticleSystem.MinMaxCurve(GameManager._gameManager._explosionParticle.GetComponent<ParticleSystem>().emission.rateOverTime.constant * _launcher._rocket.explosionRadius * _launcher._rocket.damages);
     }
     
     public void OnCollisionEnter2D(Collision2D collision)
