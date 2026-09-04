@@ -3,6 +3,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
+using TMPro;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Random = UnityEngine.Random;
@@ -13,11 +14,14 @@ public class GameManager : MonoBehaviour
     public static GameManager _gameManager;
     public enum GameState {InMenu = 0, InWaveGame = 1, InPause = 2}
     public GameState _gameState;
+    public GameObject _asteroidPrefab;
+    public GameObject _borderPrefab;
     public List<GameObject> _enemiesPrefabs = new List<GameObject>();
     public List<GameObject> _enemiesInScene = new List<GameObject>();
 
     [Header("Menu")]
     public GameObject firstSelected;
+    public TMP_Text _versionDisplay;
 
     [Header("WaveMode")]
     public WaveManager _waveManager;
@@ -33,7 +37,8 @@ public class GameManager : MonoBehaviour
     {
         public GameManager script;
         public int _waveNumber;
-        public float _waveChangeDuration;
+        public float _waveChangeDuration, _enemyNumberCoef;
+        public GameObject _border;
         public List<GameObject> _enemiesToSpawn = new List<GameObject>();
 
         public IEnumerator IWaveChange()
@@ -47,12 +52,12 @@ public class GameManager : MonoBehaviour
                 GameObject enemyToAdd = script._enemiesPrefabs[0];
                 foreach(var item in script._enemiesPrefabs)
                 {
-                    if (item.GetComponent<Shooter>()._difficulty <= restDifficulty && item.GetComponent<Shooter>()._difficulty > enemyToAdd.GetComponent<Shooter>()._difficulty)
+                    if (item.GetComponent<Enemy>()._difficulty <= Mathf.CeilToInt(restDifficulty * _enemyNumberCoef) && item.GetComponent<Enemy>()._difficulty > enemyToAdd.GetComponent<Enemy>()._difficulty)
                     {
                         enemyToAdd = item;
                     }
                 }
-                restDifficulty -= enemyToAdd.GetComponent<Shooter>()._difficulty;
+                restDifficulty -= enemyToAdd.GetComponent<Enemy>()._difficulty;
                 _enemiesToSpawn.Add(enemyToAdd);
             }
             yield return new WaitForSeconds(_waveChangeDuration);
@@ -67,10 +72,11 @@ public class GameManager : MonoBehaviour
 
         public void SpawnEnemy(GameObject enemy, float distance = 5f)
         {
-            for (int i = 1; i < 100; i++)
+            bool canSpawn = true;
+            for (int i = 1; i < Mathf.RoundToInt(this._border.transform.localScale.x / 2 - Mathf.Max(enemy.transform.localScale.x, enemy.transform.localScale.y) - 2.5f); i++)
             {
-                Vector2 spawnPos = new Vector2(Random.Range(-i, i), Random.Range(-i, i));
-                bool canSpawn = true;
+                canSpawn = true;
+                Vector2 spawnPos = Random.insideUnitCircle * i;
                 if (Vector2.Distance(spawnPos, Player._player.gameObject.transform.position) < distance)
                 {
                     canSpawn = false;
@@ -86,22 +92,27 @@ public class GameManager : MonoBehaviour
                         }
                     }
                 }
-                if (canSpawn == true)
+                if (canSpawn)
                 {
                     GameObject enemyInstance = Instantiate(enemy);
-                    // enemyInstance.transform.parent = script._enemyGroup.transform;
                     enemyInstance.transform.position = spawnPos;
                     script._enemiesInScene.Add(enemyInstance);
                     break;
                 }
             }
+            if (!canSpawn)
+            {
+                this._border.transform.localScale += Vector3.one * 5f;
+                this.SpawnEnemy(enemy, distance);
+            }
         }
 
-        public WaveManager(GameManager script, int waveNumber, float waveChangeDuration)
+        public WaveManager(GameManager script, int waveNumber, float waveChangeDuration, float enemyNumberCoef)
         {
             this.script = script;
             this._waveNumber = waveNumber;
             this._waveChangeDuration = waveChangeDuration;
+            this._enemyNumberCoef = enemyNumberCoef;
         }
     }
 
@@ -166,10 +177,14 @@ public class GameManager : MonoBehaviour
                 {
                     EventSystem.current.SetSelectedGameObject(firstSelected);
                 }
+                _versionDisplay.text = Application.version;
                 break;
             case "WaveGame":
                 _gameState = GameState.InWaveGame;
-                _waveManager = new WaveManager(this, _waveManager._waveNumber, _waveManager._waveChangeDuration);
+                _waveManager = new WaveManager(this, _waveManager._waveNumber, _waveManager._waveChangeDuration, _waveManager._enemyNumberCoef);
+                _waveManager._border = Instantiate(_borderPrefab);
+                _waveManager._border.transform.position = Vector2.zero;
+                _waveManager._border.transform.localScale = new Vector3(50f, 50f, 50f);
                 StartCoroutine(_waveManager.IWaveChange());
                 break;
         }
@@ -190,6 +205,19 @@ public class GameManager : MonoBehaviour
         SceneManager.LoadScene(scene);
         StopAllCoroutines();
         _enemiesInScene.Clear();
+    }
+
+    public static float DirectionToAngle(Vector2 direction)
+    {
+        if (Mathf.Sign(direction.x) == 1)
+        {
+            return -Vector2.Angle(Vector2.up, direction);
+        }
+        else
+        {
+            return Vector2.Angle(Vector2.up, direction);
+        }
+        //return Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
     }
 
     public void ExitGame()

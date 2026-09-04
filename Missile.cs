@@ -18,10 +18,19 @@ public class Missile : MonoBehaviour
     public void Start()
     {
         GameManager._gameManager._enemiesInScene.Add(gameObject);
+        GetComponent<SpriteRenderer>().color = _launcher._rocket.missileColor;
         _launcher._rocket.rotationSpeed = Mathf.Clamp(_launcher._rocket.rotationSpeed, 0f, 1f);
         _body.linearDamping = _launcher._rocket.precision;
+        if (_body.sharedMaterial == null)
+        {
+            GetComponent<Collider2D>().sharedMaterial.bounciness = _launcher._rocket.explosionForce;
+        }
+        else
+        {
+            _body.sharedMaterial.bounciness = _launcher._rocket.explosionForce;
+        }
         _explosionEffect.transform.localScale = new Vector3(_launcher._rocket.explosionRadius, _launcher._rocket.explosionRadius, 1f);
-        if (_launcher._mainParent.TryGetComponent<Rigidbody2D>(out Rigidbody2D parentBody))
+        if (_launcher._mainUser.TryGetComponent<Rigidbody2D>(out Rigidbody2D parentBody))
         {
             _body.linearVelocity = parentBody.linearVelocity;
         }
@@ -35,7 +44,7 @@ public class Missile : MonoBehaviour
         {
             _direction = (_target.transform.position - transform.position).normalized;
         }
-        transform.rotation = Quaternion.Euler(0f, 0f, Player._player.DirectionToAngle(_direction));
+        transform.rotation = Quaternion.Euler(0f, 0f, GameManager.DirectionToAngle(_direction));
         _body.linearVelocity = Vector2.ClampMagnitude(_body.linearVelocity, _launcher._rocket.maxSpeed);
         _speed = _body.linearVelocity.magnitude;
         _body.AddRelativeForce(Vector2.up * _launcher._rocket.acceleration);
@@ -53,8 +62,13 @@ public class Missile : MonoBehaviour
         {
             _canExplode = false;
             ParticleEffect();
-            foreach(var item in _objectsInExplosion)
+            List<GameObject> objectsInExplosionCopy = new List<GameObject>(_objectsInExplosion);
+            foreach(var item in objectsInExplosionCopy)
             {
+                if (item.TryGetComponent<Rigidbody2D>(out Rigidbody2D explosedBody))
+                {
+                    explosedBody.AddForce((item.transform.position - transform.position).normalized * _launcher._rocket.explosionForce * 10f * (Vector2.Distance(item.transform.position, transform.position) / _launcher._rocket.explosionRadius));
+                }
                 switch (item.layer)
                 {
                     case 6:
@@ -101,7 +115,7 @@ public class Missile : MonoBehaviour
     
     public void OnCollisionEnter2D(Collision2D collision)
     {
-        if (!_launcher._parents.Contains(collision.gameObject))
+        if (_launcher._mainUser != collision.gameObject)
         {
             Explode();
         }

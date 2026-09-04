@@ -24,15 +24,19 @@ public class EnnemiHealth : MonoBehaviour
             if (_health <= 0)
             {
                 GameManager._gameManager._enemiesInScene.Remove(gameObject);
-                if (TryGetComponent<Shooter>(out Shooter shooter))
+                if (TryGetComponent<Enemy>(out Enemy enemy))
                 {
-                    Player._player.DashChange(shooter._difficulty);
+                    Player._player.DashChange(enemy._difficulty);
+                    if (enemy._pin != null)
+                    {
+                        Destroy(enemy._pin);
+                    }
                 }
                 if (TryGetComponent<Missile>(out Missile missile))
                 {
                     missile.Explode();
                 }
-                Destroy(gameObject, 0.01f);
+                Destroy(gameObject);
             }
         }
     }
@@ -40,6 +44,7 @@ public class EnnemiHealth : MonoBehaviour
     public void OnCollisionEnter2D(Collision2D collision)
     {
         float impactPower = collision.GetContact(0).relativeVelocity.magnitude;
+        HealthChange(-Mathf.FloorToInt(impactPower / 10));
         GameObject particle = Instantiate(GameManager._gameManager._hitParticle);
         particle.transform.position = collision.GetContact(0).point;
         var main = particle.GetComponent<ParticleSystem>().main;
