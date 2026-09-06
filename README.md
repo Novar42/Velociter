@@ -11,7 +11,7 @@ Ce projet est entièrement réalisé à la main, sans l'aide d'IA ou source exte
 ## Supports
 
 - Unity
-- C#
+- VS Code (C#)
 - Paint.NET
 - Git & GitHub
 
