@@ -15,5 +15,5 @@ Ce projet est entièrement réalisé à la main, sans l'aide d'IA ou source exte
 - Paint.NET
 - Git & GitHub
 
-plus d'information sur mon discord : https://discord.gg/meG8hv5YVD
-vous pouvez également tester mon jeu sur mon site : https://snottycat42.itch.io/velociter
+Plus d'information sur mon discord : https://discord.gg/meG8hv5YVD. 
+Vous pouvez également tester mon jeu sur mon site : https://snottycat42.itch.io/velociter
