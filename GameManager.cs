@@ -14,6 +14,7 @@ public class GameManager : MonoBehaviour
     public static GameManager _gameManager;
     public enum GameState {InMenu = 0, InWaveGame = 1, InPause = 2}
     public GameState _gameState;
+    public Texture2D _cursorSprite;
     public GameObject _asteroidPrefab;
     public GameObject _borderPrefab;
     public List<GameObject> _enemiesPrefabs = new List<GameObject>();
@@ -38,7 +39,7 @@ public class GameManager : MonoBehaviour
         public GameManager script;
         public int _waveNumber;
         public float _waveChangeDuration, _enemyNumberCoef;
-        public GameObject _border;
+        public GameObject _border, _asteroidGroup;
         public List<GameObject> _enemiesToSpawn = new List<GameObject>();
 
         public IEnumerator IWaveChange()
@@ -178,6 +179,7 @@ public class GameManager : MonoBehaviour
                     EventSystem.current.SetSelectedGameObject(firstSelected);
                 }
                 _versionDisplay.text = Application.version;
+                Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
                 break;
             case "WaveGame":
                 _gameState = GameState.InWaveGame;
@@ -185,6 +187,20 @@ public class GameManager : MonoBehaviour
                 _waveManager._border = Instantiate(_borderPrefab);
                 _waveManager._border.transform.position = Vector2.zero;
                 _waveManager._border.transform.localScale = new Vector3(50f, 50f, 50f);
+                _waveManager._asteroidGroup = new GameObject("AsteroidGroup");
+                _waveManager._asteroidGroup.transform.position = Vector2.zero;
+                _waveManager._asteroidGroup.transform.localScale = Vector3.one;
+                for (int i = 0; i < Random.Range(5, 21); i++)
+                {
+                    GameObject asteroid = Instantiate(_asteroidPrefab);
+                    asteroid.transform.position = new Vector3(Random.Range(-75f, 75f), Random.Range(-75f, 75f), Random.Range(200f, 30f));
+                    asteroid.transform.rotation = Quaternion.Euler(Random.Range(0f, 360f), Random.Range(0f, 360f), Random.Range(0f, 360f));
+                    asteroid.transform.localScale = Vector3.one * Random.Range(10f, 30f);
+                    float randomColor = Random.Range(0.25f, 0.3f);
+                    asteroid.GetComponent<MeshRenderer>().material.SetColor("_BaseColor", new Color(randomColor, randomColor, randomColor, 1f));
+                    asteroid.transform.SetParent(_waveManager._asteroidGroup.transform);
+                }
+                Cursor.SetCursor(_cursorSprite, new Vector2(_cursorSprite.width / 2, _cursorSprite.height / 2), CursorMode.Auto);
                 StartCoroutine(_waveManager.IWaveChange());
                 break;
         }

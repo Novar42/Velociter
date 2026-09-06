@@ -46,6 +46,7 @@ public class Player : MonoBehaviour
     public TMP_Text _speedUI;
     public GameObject _joystick;
     public bool _isDrifting = false;
+    public GameObject _driftButton;
 
     [Header("UI")]
     public TMP_Text _waveUI;
@@ -144,6 +145,7 @@ public class Player : MonoBehaviour
         _camCoeff = (GameManager._gameManager._waveManager._border.transform.localScale.x - _cam.GetComponent<Camera>().orthographicSize) / GameManager._gameManager._waveManager._border.transform.localScale.x;
         UpdateCam(_camCoeff, _camDamping);
         UpdateSpeed();
+        UpdatePropels();
         if (!_isDrifting)
         {
             _body.linearVelocity = Vector2.Lerp(_body.linearVelocity, Vector2.ClampMagnitude(_body.linearVelocity, _maxSpeed), 1f);
@@ -163,6 +165,7 @@ public class Player : MonoBehaviour
             _joystick.SetActive(false);
             _dashButton.SetActive(false);
             _weaponButton.SetActive(false);
+            _driftButton.SetActive(false);
             _laserWeaponUI.transform.parent.localScale = new Vector3(0.05f, 0.05f, 1f);
             _currentDevice = CurrentDevice.Gamepad;
         }
@@ -171,6 +174,7 @@ public class Player : MonoBehaviour
             _joystick.SetActive(false);
             _dashButton.SetActive(false);
             _weaponButton.SetActive(false);
+            _driftButton.SetActive(false);
             _laserWeaponUI.transform.parent.localScale = new Vector3(0.05f, 0.05f, 1f);
             _currentDevice = CurrentDevice.Keyboard;
         }
@@ -179,6 +183,7 @@ public class Player : MonoBehaviour
             _joystick.SetActive(true);
             _dashButton.SetActive(true);
             _weaponButton.SetActive(true);
+            _driftButton.SetActive(true);
             _laserWeaponUI.transform.parent.localScale = new Vector3(0.06f, 0.06f, 1f);
             _currentDevice = CurrentDevice.Mobile;
         }
@@ -261,6 +266,10 @@ public class Player : MonoBehaviour
             _savedDirection = Vector2.Lerp(_savedDirection, (Vector2)(_joystick.transform.GetChild(0).GetChild(0).position - _joystick.transform.GetChild(0).position).normalized, 0.5f);
             transform.rotation = Quaternion.Euler(0f, 0f, GameManager.DirectionToAngle(_savedDirection));
         }
+    }
+
+    public void UpdatePropels()
+    {
         if (!_isDrifting)
         {
             float distance = Vector2.Distance(-_body.linearVelocity, (Vector2)(_propels[0].transform.position - transform.position));
@@ -294,6 +303,12 @@ public class Player : MonoBehaviour
     public void ChangeShootState(bool state)
     {
         _isShooting = state;
+    }
+
+    public void ChangeDriftState(bool state)
+    {
+        _isDrifting = state;
+        print(state);
     }
 
     public void UpdateAim()
